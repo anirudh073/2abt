@@ -737,7 +737,7 @@ def hard_regret(df, min_length, xlim):
         count += 1
     return sumr/len(sessions)  
 
-def sessdf_unstr(animal, filepath, rewProbMarker2):## Output sessdf for str task 
+def sessdf_unstr(animal, filepath, rewProbMarker2):## Output sessdf for str task #rewProbMarker2 = 83
     files = get_files(log_folder = filepath, extension = '.dat')
     df = merge_files_to_df(files)
     sessdf = trializer_v3_test_reversePorts(df, [13], 23, 51, 86, 61, 83,rewProbMarker2, 20,21, animal, arms = 2)
@@ -752,7 +752,7 @@ def sessdf_unstr(animal, filepath, rewProbMarker2):## Output sessdf for str task
     sessdf.insert(10, 'rw', list)
     return sessdf
     
-def sessdf_str(animal,filepath, rewProbMarker2): ## Output sessdf for unstr task 
+def sessdf_str(animal,filepath, rewProbMarker2): ## Output sessdf for unstr task #rewProbMarker2 = 84
     files = get_files(log_folder = filepath, extension = '.dat')
     df = merge_files_to_df(files)
     sessdf = trializer_v3_test_reversePorts(df, [12], 23, 51, 86, 61, 83,rewProbMarker2, 20,21, animal, arms = 2)
