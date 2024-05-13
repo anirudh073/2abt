@@ -1,3 +1,5 @@
+import matplotlib.pyplot as plt
+import seaborn as sns
 import numpy as np
 import pandas as pd
 
@@ -80,7 +82,7 @@ def independent_mav(bandits, pulls, structure, manualProbs, problist, contrast):
     t = 0.1 #temperature
     a = 0.1 #learning rate
     if manualProbs == False:
-        prob_array = [0.1, 0.2,  0.3, 0.4, 0.6, 0.7, 0.8, 0.9]
+        prob_array = [0.1, 0.2, 0.3, 0.4, 0.6, 0.7, 0.8, 0.9]
     else:
         prob_array = problist    
     r_pulls_aray = []
@@ -142,10 +144,14 @@ def independent_mav(bandits, pulls, structure, manualProbs, problist, contrast):
 
 def structured(trials, sessions, probs, coupling, policy, params, window, output, plot):
     ''' 
-    coupling parameter defines degree of structure
-    store all choices and rewards in separate arrays
+    probs; 'all' or specify as percentages
+    coupling parameter defines degree of structure (0=<c=<1)
+    policy: 'softmax' or 'epsilon-greedy'
     params in order: alpha, epsilon, tau
-    policy: softmax or epsilon-greedy
+    window; window size for moving average
+    output; 'reward rate' / 'soft regret' / 'hard regret'
+    plot; Bool
+    store choice, reward, trial#, session#, rewprob1, rewprob2, better rewprob
     '''
     arms = 2
     alpha = params[0]
@@ -153,50 +159,69 @@ def structured(trials, sessions, probs, coupling, policy, params, window, output
     tau = params[2]
     c = coupling #between zero  and one
     if probs == 'all':
-        probs = np.delete(np.arange(0.1, 1, 0.1), 4)
-    
-
+        probs = [10, 20, 30, 40, 60, 70, 80, 90]
     else:
-        probs = probs  
+        probs = probs
     choices = [] #all choices across all sessions
     rewards = [] #all rewards across all sessions
     rewards_array = [] #all session-wise reward lists
     regret_array = [] #all session-wise regret lists
+    session_num = []
+    Trial = 0
+    trial_num = []
     p_left = []
+    rewprobfull1 = []
+    rewprobfull2 = []
+    rw = []
     for i in range(sessions):
         Q = np.ones(2)/2
         p1 = np.random.choice(probs)
-        p2 = 1-p1
+        p2 = 100-p1
         prob = [p1, p2]
-        p_left.append(p2)
-        # print(prob)
+        p_left.append(p1)
+        # print('prob: ', prob)
         best = np.maximum(prob[0], prob[1]) #optimal arm for this session
         r_session = [] # records rewards for each session, then resets
         regret_session = [] # records regret for each session, then resets
         for trial in range(trials):
+            session_num.append(i+1) #add to 'session#' column of df
+            trial_num.append(Trial+1) #add to 'trial' column of df
+            Trial += 1
+            rewprobfull1.append(p1) #add to 'rewprobfull1 column of df
+            rewprobfull2.append(p2) #add to 'rewprobfull2' column of df
             if policy == 'softmax':
                 exp_Q = np.exp(Q/tau) 
                 sfx_Q = exp_Q/np.sum(exp_Q) # softmax probabilities
                 j= np.random.choice(range(arms),p=sfx_Q) # picks one arm based on softmax probability
-                if np.random.random()<prob[j]: r = 1
+                if j == 0:
+                    choice = 1
+                elif j == 1:
+                    choice = 2
+                if np.random.random()*100<prob[j]: r = 1
                 else: r = 0  
-                # print(j,r)
-            if policy == 'e-greedy':
+                # print('choice, r:',  choice,r)
+            elif policy == 'e-greedy':
                 if np.random.random()<epsilon:
                     j = np.random.choice(range(arms))
                 else:
                     j = np.argmax(Q)
-                if np.random.random()<prob[j]: r = 1
+                if j == 0:
+                    choice = 1
+                elif j == 1:
+                    choice = 2
+                if np.random.random()*100<prob[j]: r = 1
                 else: r = 0 
                 # print(j, r)
+            rw.append(prob[j])
             Q[j] = Q[j] + ((r - Q[j])*alpha)
             if j == 0:
                 Q[1] = Q[1] - c*((r - Q[j])*alpha)
             if j == 1:
-                Q[0] = Q[0] - c*((r - Q[j])*alpha)                
-            r_session.append(r) 
+                Q[0] = Q[0] - c*((r - Q[j])*alpha) 
+            # print('q:', Q)
+            r_session.append(r)  
             rewards.append(r)
-            choices.append(j) 
+            choices.append(choice) 
             #computing regret:
             if output == 'soft regret':
                 regret = abs(np.subtract(best, prob[j]))
@@ -229,46 +254,63 @@ def structured(trials, sessions, probs, coupling, policy, params, window, output
     else:
         if output == 'reward rate':
             rewards_average = np.mean(rewards_array, axis = 0).tolist()            
-            return rewards_average
+            return pd.DataFrame(data = {'trial#' : trial_num, 'session#' : session_num, 'port': choices, 'reward' : rewards, 'rewprobfull1' : rewprobfull1, 'rewprobfull2' : rewprobfull2, 'rw' : rw})
         if (output == 'soft regret') | (output == 'hard regret'):
             regret_average = np.mean(regret_array, axis = 0).tolist()
-            return regret_average
-    return choices, p_left, rewards
+            return pd.DataFrame(data = {'trial#' : trial_num, 'session#' : session_num, 'port': choices, 'reward' : rewards, 'rewprobfull1' : rewprobfull1, 'rewprobfull2' : rewprobfull2, 'rw' : rw})
     
-        
-def unstructured(trials, sessions, coupling, policy, params, window, output, plot):
+def unstructured(trials, sessions, probs, coupling, policy, params, window, output, plot):
     ''' 
-    coupling parameter defines degree of structure
-    store all choices and rewards in separate arrays
+    probs; 'all' or specify as percentages
+    coupling parameter defines degree of structure (0=<c=<1)
+    policy: 'softmax' or 'epsilon-greedy'
     params in order: alpha, epsilon, tau
-    policy: softmax or epsilon-greedy
+    window; window size for moving average
+    output; 'reward rate' / 'soft regret' / 'hard regret'
+    plot; Bool
+    store all choices and rewards in separate arrays
     '''
     arms = 2
     alpha = params[0]
     epsilon = params[1]
     tau = params[2]
     c = coupling #between zero  and one
-    probs = np.delete(np.arange(0.1, 1, 0.1), 4)
+    if probs == 'all':
+        probs = [10, 20, 30, 40, 60, 70, 80, 90]
+    else:
+        probs = probs
     choices = [] #all choices across all sessions
     rewards = [] #all rewards across all sessions
     rewards_array = [] #all session-wise reward lists
     regret_array = [] #all session-wise regret lists
+    session_num = []
+    trial_num = []
+    Trial = 0
     p_left = []
+    rewprobfull1 = []
+    rewprobfull2 = []
+    rw = []
     for i in range(sessions):
-        Q = np.zeros(2)
+        Q = np.ones(2)/2
         p1 = np.random.choice(probs)
         p2 = np.random.choice(probs)
         prob = [p1, p2]
-        p_left.append(p2)
+        p_left.append(p1)
+        # print(prob)
         best = np.maximum(prob[0], prob[1]) #optimal arm for this session
         r_session = [] # records rewards for each session, then resets
         regret_session = [] # records regret for each session, then resets
         for trial in range(trials):
+            session_num.append(i+1) #add to 'session#' column of df
+            trial_num.append(Trial+1) #add to 'trial' column of df
+            Trial += 1
+            rewprobfull1.append(p1) #add to 'rewprobfull1 column of df
+            rewprobfull2.append(p2) #add to 'rewprobfull2' column of df
             if policy == 'softmax':
                 exp_Q = np.exp(Q/tau) 
                 sfx_Q = exp_Q/np.sum(exp_Q) # softmax probabilities
                 j= np.random.choice(range(arms),p=sfx_Q) # picks one arm based on softmax probability
-                if np.random.random()<prob[j]: r = 1
+                if np.random.random()*100<prob[j]: r = 1
                 else: r = 0  
                 # print(j,r)
             if policy == 'e-greedy':
@@ -276,9 +318,10 @@ def unstructured(trials, sessions, coupling, policy, params, window, output, plo
                     j = np.random.choice(range(arms))
                 else:
                     j = np.argmax(Q)
-                if np.random.random()<prob[j]: r = 1
+                if np.random.random()*100<prob[j]: r = 1
                 else: r = 0 
                 # print(j, r)
+            rw.append(prob[j])
             Q[j] = Q[j] + ((r - Q[j])*alpha)
             if j == 0:
                 Q[1] = Q[1] - c*((r - Q[j])*alpha)
@@ -319,14 +362,14 @@ def unstructured(trials, sessions, coupling, policy, params, window, output, plo
     else:
         if output == 'reward rate':
             rewards_average = np.mean(rewards_array, axis = 0).tolist()            
-            return rewards_average
+            return pd.DataFrame(data = {'trial#' : trial_num, 'session#' : session_num, 'port': choices, 'reward' : rewards, 'rewprobfull1' : rewprobfull1, 'rewprobfull2' : rewprobfull2, 'rw' : rw})
         if (output == 'soft regret') | (output == 'hard regret'):
             regret_average = np.mean(regret_array, axis = 0).tolist()
-            return regret_average
+            return pd.DataFrame(data = {'trial#' : trial_num, 'session#' : session_num, 'port': choices, 'reward' : rewards, 'rewprobfull1' : rewprobfull1, 'rewprobfull2' : rewprobfull2, 'rw' : rw})
 
-    return choices, p_left, rewards
-        
-        
+
+
+
         
         
             
