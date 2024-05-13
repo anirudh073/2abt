@@ -735,9 +735,9 @@ def hard_regret(df, min_length, xlim):
     
         # print('sum', sumr)
         count += 1
-    return sumr/len(sessions)  
+    return sumr/len(sessions)  #return averaged regret
 
-def sessdf_unstr(animal, filepath, rewProbMarker2):## Output sessdf for str task #rewProbMarker2 = 83
+def sessdf_unstr(animal, filepath, rewProbMarker2):## Output sessdf for str task #rewProbMarker 2 = 83
     files = get_files(log_folder = filepath, extension = '.dat')
     df = merge_files_to_df(files)
     sessdf = trializer_v3_test_reversePorts(df, [13], 23, 51, 86, 61, 83,rewProbMarker2, 20,21, animal, arms = 2)
@@ -833,6 +833,7 @@ def choice_unstr(sessdf, trial_cutoff, n_plots): ## trial-by-trial choice plot f
         markers = {0: "$o$", 1: "o"}
         # hue_order = [10, 20, 30, 40, 60, 70, 80, 90]
         g = sns.relplot(data = session_subset, x = 'trial#', y = 'port', aspect = 5, linewidth = 0.1, style = 'reward', markers = markers, s = 150, legend = 'full', palette = 'rocket_r', hue = hue)
+           
         last = session_subset.groupby('session#')['trial#'].max()
         axes = g.axes.flatten()
         for ax in axes: 
@@ -841,7 +842,7 @@ def choice_unstr(sessdf, trial_cutoff, n_plots): ## trial-by-trial choice plot f
                 ax.set_yticks([1,2])
 
         plt.ylim(0.5, 2.5)
-        plt.title('Gronckle', fontsize = 20)
+        plt.title('', fontsize = 20)
         g._legend.texts[0].set_text("Reward %")
         # g._legend.texts[5].set_text("Outcome")
         plt.xlabel('Trials')
@@ -948,7 +949,7 @@ def choice_str(sessdf, trial_cutoff, n_plots): ## trial-by-trial chocie plot for
         x+= 30
         y+=30
    
-def filter_by_time(df, t_diff = 3600):
+def filter_by_time(df, t_diff = 10800):
     '''
     input: session-wise animal df
     t_diff: minimum permitted time diff between sessions in seconds (default = 10800 / 3 hours)
@@ -968,5 +969,11 @@ def filter_by_time(df, t_diff = 3600):
     df_mod = df_mod[df_mod['session#'].isin(keep_sess)]
     return df_mod       
 
-        
+def subset(df):
+    return df[((df['rewprobfull1']==10)&(df['rewprobfull2']==90))|((df['rewprobfull1']==20)&(df['rewprobfull2']==80))|((df['rewprobfull1']==30)&(df['rewprobfull2']==70))|((df['rewprobfull1']==40)&(df['rewprobfull2']==60))|((df['rewprobfull1']==90)&(df['rewprobfull2']==10))|((df['rewprobfull1']==80)&(df['rewprobfull2']==20))|((df['rewprobfull1']==70)&(df['rewprobfull2']==30))|((df['rewprobfull1']==60)&(df['rewprobfull2']==40))]      
 
+def subset_difference(df, condition):
+    if condition == 'easy':
+        return df[abs(df['rewprobfull1']-df['rewprobfull2'])>=50]
+    if condition == 'hard':
+        return df[abs(df['rewprobfull1']-df['rewprobfull2'])<=40]
