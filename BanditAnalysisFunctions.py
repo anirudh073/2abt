@@ -789,16 +789,21 @@ def rr_grid(sessdf, n_rows, max_rew, y_min=0.5, y_max=0.85 ): # series of reward
     sns.despine()        
     plt.show()           
 
-def bias_plot(sessdf): ## doesn't work || Dividing by zero error
+def bias_plot(sessdf, min_length = 100, tail = 50): ## doesn't work || Dividing by zero error
     #fraction of choices where port 1 was selected, given contrasts ranging from -80 to +80
-    sessdf_c = sessdf.groupby("session#").filter(lambda x: len(x["trial#"])>250).groupby('session#').tail(150)
+    sessdf_c = sessdf.groupby("session#").filter(lambda x: len(x["trial#"])>min_length).groupby('session#').tail(tail)
     sessdf_c.groupby('session#').mean(numeric_only = True)
     c1, c2 = sessdf_c[(sessdf_c['rewprobfull1']-sessdf_c['rewprobfull2'])==-80] , sessdf_c[(sessdf_c['rewprobfull1']-sessdf_c['rewprobfull2'])==-60]
     c3, c4 = sessdf_c[(sessdf_c['rewprobfull1']-sessdf_c['rewprobfull2'])==-40], sessdf_c[(sessdf_c['rewprobfull1']-sessdf_c['rewprobfull2'])==-20]
     c5, c6 = sessdf_c[(sessdf_c['rewprobfull1']-sessdf_c['rewprobfull2'])==20], sessdf_c[(sessdf_c['rewprobfull1']-sessdf_c['rewprobfull2'])==40]
     c7, c8 = sessdf_c[(sessdf_c['rewprobfull1']-sessdf_c['rewprobfull2'])==60], sessdf_c[(sessdf_c['rewprobfull1']-sessdf_c['rewprobfull2'])==80]
     array = [c1, c2, c3, c4, c5, c6, c7, c8]
-    C1, C2, C3, C4, C5, C6, C7, C8 = len(c1[c1['port']==1])/len(c1), len(c2[c2['port']==1])/len(c2), len(c3[c3['port']==1])/len(c3) ,len(c4[c4['port']==1])/len(c4),len(c5[c5['port']==1])/len(c5),len(c6[c6['port']==1])/len(c6),len(c7[c7['port']==1])/len(c7),len(c8[c8['port']==1])/len(c8) #ignore any values that are undefined due to zero division?
+    
+    for i, df in enumerate(array): # prevent zero division error
+        if (len(df) == 0) | (len(pd.unique(df['session#']))<3): # dont consider df is number of sessions is less than 3
+            array[i] = pd.DataFrame({'port':np.zeros(10000)}) # dividing by a large number to return zero 
+
+    C1, C2, C3, C4, C5, C6, C7, C8 = len(c1[c1['port']==1])/len(array[0]), len(c2[c2['port']==1])/len(array[1]), len(c3[c3['port']==1])/len(array[2]) ,len(c4[c4['port']==1])/len(array[3]),len(c5[c5['port']==1])/len(array[4]),len(c6[c6['port']==1])/len(array[5]),len(c7[c7['port']==1])/len(array[6]),len(c8[c8['port']==1])/len(array[7]) #ignore any values that are undefined due to zero division?
     fig, ax = plt.subplots(figsize = (6,6))
     ax.plot( [-80, -60, -40, -20, 20, 40, 60, 80], np.multiply([C1, C2, C3, C4, C5, C6, C7, C8], np.ones(8)*100), 'b')
     ax.plot(np.ones(100)*0, range(100), 'k', linewidth = 0.4)
@@ -810,9 +815,16 @@ def bias_plot(sessdf): ## doesn't work || Dividing by zero error
     plt.ylim(0, 105)
     sns.despine()
 
+    return np.multiply([C1, C2, C3, C4, C5, C6, C7, C8], np.ones(8)*100)
 
 
 def choice_unstr(sessdf, trial_cutoff, n_plots): ## trial-by-trial choice plot for unstructured task
+    '''
+    return session-wise choice plot for unstr data. 
+    sessdf - input dataframe 
+    trial_cutoff - min session length allowed
+    n_plots - number of plots to create (depends on the number of sessions available)
+    '''
     #use reward prob as hue
     #in sessdf, add reward prob, with each entry corresponding to the port selected
     sessdf = sessdf.groupby("session#").filter(lambda x: len(x["trial#"])>trial_cutoff)
@@ -970,10 +982,119 @@ def filter_by_time(df, t_diff = 10800):
     return df_mod       
 
 def subset(df):
-    return df[((df['rewprobfull1']==10)&(df['rewprobfull2']==90))|((df['rewprobfull1']==20)&(df['rewprobfull2']==80))|((df['rewprobfull1']==30)&(df['rewprobfull2']==70))|((df['rewprobfull1']==40)&(df['rewprobfull2']==60))|((df['rewprobfull1']==90)&(df['rewprobfull2']==10))|((df['rewprobfull1']==80)&(df['rewprobfull2']==20))|((df['rewprobfull1']==70)&(df['rewprobfull2']==30))|((df['rewprobfull1']==60)&(df['rewprobfull2']==40))]      
+    return df[((df['rewprobfull1']==10)&(df['rewprobfull2']==90))|((df['rewprobfull1']==20)&(df['rewprobfull2']==80))|((df['rewprobfull1']==30)&(df['rewprobfull2']==70))|((df['rewprobfull1']==40)&(df['rewprobfull2']==60))|((df['rewprobfull1']==90)&(df['rewprobfull2']==10))|((df['rewprobfull1']==80)&(df['rewprobfull2']==20))|((df['rewprobfull1']==70)&(df['rewprobfull2']==30))|((df['rewprobfull1']==60)&(df['rewprobfull2']!=40))]     
+
+def subset_unstructured(df):
+    ''' remove all rewprobs possible in the structured environment '''
+    return df[((df['rewprobfull1']!=10)&(df['rewprobfull2']!=90))|((df['rewprobfull1']!=20)&(df['rewprobfull2']!=80))|((df['rewprobfull1']!=30)&(df['rewprobfull2']!=70))|((df['rewprobfull1']!=40)&(df['rewprobfull2']!=60))|((df['rewprobfull1']!=90)&(df['rewprobfull2']!=10))|((df['rewprobfull1']!=80)&(df['rewprobfull2']!=20))|((df['rewprobfull1']!=70)&(df['rewprobfull2']!=30))|((df['rewprobfull1']!=60)&(df['rewprobfull2']!=40))]     
+
+
 
 def subset_difference(df, condition):
     if condition == 'easy':
         return df[abs(df['rewprobfull1']-df['rewprobfull2'])>=50]
     if condition == 'hard':
         return df[abs(df['rewprobfull1']-df['rewprobfull2'])<=40]
+
+#learning over time:
+#plot (cumm?)regret reached at the end of n trials
+def longitudinal(df, order, window = 5, head = 150, tail = 20, title = '', subset = False, condition = 'easy', hline = 0):
+    ''' longitudinal analysis representing learning over time. plots mean regret achieved during the last n trials against session#
+        INPUTS:
+        df - unmodified animal dataframe
+        order - 'g'/'r' : structured first:ustructured first
+        window - for pd.rolling()
+        head - take first n trials of each session
+        tail - take last n trials of the subset obtained after applying head()
+        title - plot title
+        subset - If True, subset sessions based on difficulty
+        condition - applied to subset (possible values: 'easy'/'hard')
+        OUTPUT:
+        regret vs session# plot    
+    '''
+    
+    if subset == True:
+        if condition == 'easy':
+            df = subset_difference(df, 'easy')
+        if condition == 'hard':
+            df = subset_difference(df, 'hard')
+    df_tails = df.groupby('session#').head(head).groupby('session#').tail(tail)
+    sessions = pd.unique(df_tails['session#'])
+    df_mean = df_tails.groupby('session#').mean(numeric_only = True)
+    best = []
+    for i, row in df_mean.iterrows():
+        r1 = df_mean['rewprobfull1'][i]
+        r2 = df_mean['rewprobfull2'][i]
+        best.append(np.maximum(r1, r2))
+    regret_list  = []    
+    for index, e in enumerate(sessions):
+        choice = df_tails.loc[lambda df_tails: df_tails['session#']==e, ['rw']].to_numpy().flatten()
+        regret = (abs(np.subtract(np.ones(len(choice))*best[index], choice))*0.01)
+        for i in range(len(regret)):
+            if regret[i] > 0:
+                regret[i] = 1
+        regret = np.mean(regret)
+        regret_list.append(regret)
+    regret_list
+    fig, ax = plt.subplots(layout = 'tight')
+    ax.plot(range(len(regret_list)), pd.DataFrame(regret_list).rolling(window, center = True).mean(), 'b')
+    if hline > 0:
+        # ax.plot(np.ones(8)*hline, np.arange(0, 0.8, 0.1), 'k')
+        if order == 'g':
+            ax.axvspan(xmin = 0, xmax = hline, color = 'g', alpha = 0.2)
+            ax.axvspan(xmin = hline, xmax = np.max(df.groupby('session#').mean(numeric_only = True).index), color = 'r', alpha = 0.2)
+        if order == 'r':
+            ax.axvspan(xmin = 0, xmax = hline, color = 'r', alpha = 0.2)
+            ax.axvspan(xmin = hline, xmax = np.max(df.groupby('session#').mean(numeric_only = True).index), color = 'g', alpha = 0.2)            
+            
+    plt.title(title)
+    plt.xlabel('Session #')
+    plt.ylabel('regret')
+    plt.xlim(0, len(pd.unique(df['session#'])))
+    plt.ylim(0, 0.7)
+    sns.despine()
+    plt.show()
+
+def add_cols(df, rat):
+    '''
+    modify df to make it compatible with celiaberon logreg code
+    add columns: blockTrial, blockLength, Target 
+    modify column names
+    input: df, rat(str, eg. R1)
+    output: modified df
+    '''                                                                                                                                                                                                                                 
+    df = df.rename(columns = {'trial#':'Trial', 'port':'Decision', 'reward': 'Reward', 'session#':'Session'})
+    df['Decision'] = df['Decision'].replace({1:0, 2:1})
+    switches = abs(df['Decision'].shift(-1, ) - df['Decision'])
+    switches.iloc[-1] = 0
+    df.insert(4, 'Switch', switches )
+    #### insert blockTrials:
+    sessions = pd.unique(df['Session'])
+    df.insert(2, 'blockTrial', np.zeros(len(df)))
+    
+    for i, session in enumerate(sessions):
+        if i > 0:
+            blockTrial = df[df['Session'] == session]['Trial'].sub((np.ones(len(df[df['Session'] == session]))*max(df[df['Session'] == sessions[i-1]]['Trial'])))
+        elif i == 0:
+            blockTrial = df[df['Session']==session]['Trial']
+        df.loc[df['Session'] == session, ['blockTrial']] = blockTrial
+    
+    #### insert blockLength
+    df.insert(3, 'blockLength', np.zeros(len(df)))
+    
+    for session in sessions:
+        blockLength = np.ones(len(df[df['Session']==session]))*max(df[df['Session']==session]['blockTrial'])
+        df.loc[df['Session']==session, ['blockLength']] = blockLength
+    
+    #### insert Target
+    df.insert(4, 'Target', np.zeros(len(df)))
+    for session in sessions:
+        if np.mean(df[df['Session']== session]['rewprobfull1']) > np.mean(df[df['Session']== session]['rewprobfull2']):
+            target = 1
+        else:
+            target = 2
+        df.loc[df['Session']==session, ['Target']] = target
+    df['Session'] = df.Session.map(lambda x: rat + '_' + f'{x}')
+    df['Rat'] = rat
+    return df
+##target
