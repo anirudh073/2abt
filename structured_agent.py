@@ -3,146 +3,8 @@ import seaborn as sns
 import numpy as np
 import pandas as pd
 
-def dependent_mav(bandits, pulls, structure, manualProbs, problist, contrast): 
-    n_bandits = bandits
-    n_pulls = pulls
-    epsilon = 0.1
-    k = 2 #number of arms
-    c = structure #degree of structure 
-    t = 0.1 #temperature
-    a = 0.1 #learning rate
-    if manualProbs == False:
-        prob_array = [0.1, 0.2,  0.3, 0.4, 0.6, 0.7, 0.8, 0.9]
-    else:
-        prob_array = problist
-    
-    r_pulls_aray = []
-    #Q is carried over
-    for i in range(n_bandits):   
-        Q = np.ones(2)/2
-        if manualProbs == False:
-            p1 = np.random.choice(prob_array)
-            p2 = 1-p1
-            prob = [p1, p2]
-        if manualProbs == True:
-            p1 = np.random.choice(prob_array)
-            p2 = p1 + contrast
-            prob = [p1, p2]
-        # regret_pull = []
-        # cum_regret = []    
-        r_pulls = []
-        #print('prob:' , prob) 
-        for pull in range(n_pulls):
-            
-            exp_Q = np.exp(Q/t) 
-            sfx_Q = exp_Q/np.sum(exp_Q) # softmax probabilities
-            j= np.random.choice(range(k),p=sfx_Q) # picks one arm based on softmax probability
-            if np.random.random()<prob[j]: r = 1
-            else: r = 0
-            
-            r_pulls.append(r)
-            
-            Q[j] = Q[j] + ((r - Q[j])*a)
-            # if j == 0:
-            #     Q[j+1] = Q[j+1] + c*((1-r) - Q[j+1]*a)
-            # if j == 1:
-            #     Q[j-1] = Q[j-1] + c*((1-r) - Q[j-1]*a)    
-            if j == 0:
-                Q[j+1] = Q[j+1] - c*(r - Q[j+1]*a)
-            if j == 1:
-                Q[j-1] = Q[j-1] - c*(r - Q[j-1]*a) 
-        #     print('sfx:', sfx_Q)
-        #     print('arm:' , j)
-        #     print('reward' , r)
-        #     print('Q:', Q[0], Q[1])
-        #     print('-------------')
-        # print('--------------------')
-            
-        r_pulls_aray.append(r_pulls)
-        
-        # cum_regret_array_i.append(cum_regret)
-    r_pulls_average = np.mean(r_pulls_aray, axis = 0)
 
-        
-    # cum_regret_array_av = np.mean(cum_regret_array_i, axis = 0)
-    mav = pd.DataFrame(r_pulls_average).rolling(1, center = True).mean()
-    #fig1.plot(range(0, n_pulls), cum_regret_array_av) 
-    #fig1.plot(range(0, n_pulls), mav )
-    #fig1.plot(range(0, n_pulls), j_array, 'o')
-    # print(prob)
-    # print(Q)
-    return mav   
-    
-def independent_mav(bandits, pulls, structure, manualProbs, problist, contrast): 
-    n_bandits = bandits
-    n_pulls = pulls
-    epsilon = 0.1
-    k = 2 #number of arms
-    c = structure #degree of structure 
-    t = 0.1 #temperature
-    a = 0.1 #learning rate
-    if manualProbs == False:
-        prob_array = [0.1, 0.2, 0.3, 0.4, 0.6, 0.7, 0.8, 0.9]
-    else:
-        prob_array = problist    
-    r_pulls_aray = []
-    #Q is carried over
-    for i in range(n_bandits):   
-        Q = np.ones(2)/2
-        if manualProbs == False:
-            p1 = np.random.choice(prob_array)
-            p2 = 1-p1
-            prob = [p1, p2]
-        if manualProbs == True:
-            p1 = np.random.choice(prob_array)
-            p2 = p1 + contrast
-            prob = [p1, p2]
-        # regret_pull = []
-        # cum_regret = []    
-        r_pulls = []
-        #print('prob:' , prob) 
-        for pull in range(n_pulls):
-            
-            exp_Q = np.exp(Q/t) 
-            sfx_Q = exp_Q/np.sum(exp_Q) # softmax probabilities
-            j= np.random.choice(range(k),p=sfx_Q) # picks one arm based on softmax probability
-            if np.random.random()<prob[j]: r = 1
-            else: r = 0
-            
-            r_pulls.append(r)
-            
-            Q[j] = Q[j] + ((r - Q[j])*a)
-            if j == 0:
-                Q[j+1] = Q[j+1] - c*((r - Q[j+1])*a)
-            if j == 1:
-                Q[j-1] = Q[j-1] - c*((r - Q[j-1])*a)    
-        #     print('probs: ', prob)
-        #     print('sfx:', sfx_Q)
-        #     print('arm:' , j)
-        #     print('reward' , r)
-        #     print('Q:', Q[0], Q[1])
-        #     print('-------------')
-        # print('------------------------------------')    
-        r_pulls_aray.append(r_pulls)
-        
-        # cum_regret_array_i.append(cum_regret)
-    r_pulls_average = np.mean(r_pulls_aray, axis = 0)
-
-        #print('--------------------')
-    # cum_regret_array_av = np.mean(cum_regret_array_i, axis = 0)
-    mav = pd.DataFrame(r_pulls_average).rolling(1
-                                                , center = True).mean()
-    #fig1.plot(range(0, n_pulls), cum_regret_array_av) 
-    #fig1.plot(range(0, n_pulls), mav )
-    #fig1.plot(range(0, n_pulls), j_array, 'o')
-    # print(prob)
-    # print(Q)
-    return mav   
-    
-# One function per environment
-# Inputs : n_trials, n_sessions, coupling factor, output (reward rate/regret)
-
-def structured(trials, sessions, probs, coupling, policy, params, window, output, plot):
+def structured(trials, sessions, probs, coupling, policy, params, window, output, plot): #vectorise!
     ''' 
     probs; 'all' or specify as percentages
     coupling parameter defines degree of structure (0=<c=<1)
@@ -281,6 +143,8 @@ def unstructured(trials, sessions, probs, coupling, policy, params, window, outp
         probs = probs
     choices = [] #all choices across all sessions
     rewards = [] #all rewards across all sessions
+
+    
     rewards_array = [] #all session-wise reward lists
     regret_array = [] #all session-wise regret lists
     session_num = []
